@@ -135,3 +135,5 @@ captures/
 .externalNativeBuild/
 .cxx/
 local.properties
+
+/data/
