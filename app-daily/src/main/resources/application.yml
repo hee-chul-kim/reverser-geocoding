@@ -1,0 +1,38 @@
+spring:
+  profiles:
+    active: local
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+elasticsearch:
+  host: localhost
+  port: 9200
+  scheme: http
+  connectTimeout: 5000
+  socketTimeout: 60000
+  maxRetryTimeoutMillis: 60000
+  indexSettings:
+    numberOfShards: 1
+    numberOfReplicas: 1
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+elasticsearch:
+  host: ${ES_HOST:localhost}
+  port: ${ES_PORT:9200}
+  scheme: ${ES_SCHEME:http}
+  username: ${ES_USERNAME:}
+  password: ${ES_PASSWORD:}
+  connectTimeout: ${ES_CONNECT_TIMEOUT:5000}
+  socketTimeout: ${ES_SOCKET_TIMEOUT:60000}
+  maxRetryTimeoutMillis: ${ES_MAX_RETRY_TIMEOUT:60000}
+  indexSettings:
+    numberOfShards: ${ES_NUMBER_OF_SHARDS:1}
+    numberOfReplicas: ${ES_NUMBER_OF_REPLICAS:1}
