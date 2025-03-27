@@ -15,10 +15,10 @@ import javax.sql.DataSource
 @Configuration
 @EnableTransactionManagement
 @EnableJpaRepositories(basePackages = ["com.example.common.repository"])
-class DatabaseConfig {
+open class DatabaseConfig {
 
     @Bean
-    fun dataSource(): DataSource {
+    open fun dataSource(): DataSource {
         val config = HikariConfig().apply {
             driverClassName = "org.postgresql.Driver"
             jdbcUrl = "jdbc:postgresql://localhost:5432/t1100555"
@@ -30,7 +30,7 @@ class DatabaseConfig {
     }
 
     @Bean
-    fun entityManagerFactory(): LocalContainerEntityManagerFactoryBean {
+    open fun entityManagerFactory(): LocalContainerEntityManagerFactoryBean {
         val vendorAdapter = HibernateJpaVendorAdapter().apply {
             setGenerateDdl(true)
             setShowSql(true)
@@ -45,7 +45,7 @@ class DatabaseConfig {
     }
 
     @Bean
-    fun transactionManager(): PlatformTransactionManager {
+    open fun transactionManager(): PlatformTransactionManager {
         return JpaTransactionManager(entityManagerFactory().`object`!!)
     }
 

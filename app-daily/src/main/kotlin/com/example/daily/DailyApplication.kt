@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Import
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = ["com.example.daily", "com.example.common"])
 @Import(DatabaseConfig::class)
 class DailyApplication
 

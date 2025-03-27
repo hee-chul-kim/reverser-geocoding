@@ -1,7 +1,19 @@
+import org.springframework.boot.gradle.tasks.bundling.BootJar
+
 plugins {
     kotlin("jvm")
+    kotlin("plugin.spring")
+    kotlin("plugin.jpa")
     id("org.springframework.boot")
     id("io.spring.dependency-management")
+}
+
+apply(plugin = "kotlin-jpa")
+
+allOpen {
+    annotation("javax.persistence.Entity")
+    annotation("javax.persistence.MappedSuperclass")
+    annotation("javax.persistence.Embeddable")
 }
 
 dependencies {
@@ -13,4 +25,10 @@ dependencies {
 
     implementation("co.elastic.clients:elasticsearch-java:8.17.4")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.17.0")
+}
+
+tasks {
+    withType<BootJar> {
+        enabled = false
+    }
 }

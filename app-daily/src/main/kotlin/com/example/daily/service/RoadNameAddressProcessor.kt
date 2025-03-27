@@ -15,7 +15,7 @@ import java.io.File
 import java.nio.file.Paths
 
 @Service
-class RoadNameAddressProcessor(
+open class RoadNameAddressProcessor(
     private val roadNameAddressRepository: RoadNameAddressRepository,
     private val roadNameAddressEntranceRepository: RoadNameAddressEntranceRepository
 ) {
@@ -76,7 +76,7 @@ class RoadNameAddressProcessor(
     }
 
     @Transactional
-    fun processAddressFile(filePath: String) {
+    open fun processAddressFile(filePath: String) {
         logger.info("Starting to process address file: $filePath")
         
         val schema = CsvSchema.builder()
@@ -175,7 +175,7 @@ class RoadNameAddressProcessor(
     }
 
     @Transactional
-    fun processEntranceFile(filePath: String) {
+    open fun processEntranceFile(filePath: String) {
         logger.info("Starting to process entrance file: $filePath")
         
         val schema = CsvSchema.builder()
