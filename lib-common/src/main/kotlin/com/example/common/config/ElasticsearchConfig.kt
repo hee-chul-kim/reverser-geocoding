@@ -15,12 +15,12 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration
 @EnableConfigurationProperties(ElasticsearchProperties::class)
-class ElasticsearchConfig(
+open class ElasticsearchConfig(
     private val properties: ElasticsearchProperties
 ) {
 
     @Bean
-    fun elasticsearchClient(): ElasticsearchClient {
+    open fun elasticsearchClient(): ElasticsearchClient {
         val restClientBuilder = RestClient.builder(
             HttpHost(properties.host, properties.port, properties.scheme)
         )
@@ -43,7 +43,7 @@ class ElasticsearchConfig(
 
         // 최대 재시도 타임아웃 설정
         builder.setHttpClientConfigCallback { httpClientBuilder ->
-            httpClientBuilder.setMaxRetryTimeoutMillis(properties.maxRetryTimeoutMillis)
+            //httpClientBuilder.setMaxRetryTimeoutMillis(properties.maxRetryTimeoutMillis)
 
             // 인증 정보가 있는 경우에만 설정
             if (!properties.username.isNullOrBlank() && !properties.password.isNullOrBlank()) {

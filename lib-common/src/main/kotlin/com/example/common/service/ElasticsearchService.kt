@@ -1,10 +1,10 @@
 package com.example.common.service
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient
-import co.elastic.clients.elasticsearch.core.BulkRequest
+import co.elastic.clients.elasticsearch.core.*
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation
-import co.elastic.clients.elasticsearch.indices.CreateIndexRequest
-import co.elastic.clients.elasticsearch.indices.DeleteIndexRequest
+import co.elastic.clients.elasticsearch.indices.*
+import co.elastic.clients.elasticsearch.indices.UpdateAliasesRequest
 import com.example.common.config.ElasticsearchProperties
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -84,8 +84,9 @@ class ElasticsearchService(
                 if (response.errors()) {
                     logger.error("벌크 입력 중 일부 문서 처리 실패")
                     response.items().forEachIndexed { index, item ->
-                        if (item.error() != null) {
-                            logger.error("문서 처리 실패 - 인덱스: ${item.index()}, 이유: ${item.error().reason()}")
+                        val error = item.error()
+                        if (error != null) {
+                            logger.error("문서 처리 실패 - 인덱스: ${item.index()}, 이유: ${error.reason()}")
                             failedDocuments.add(documents[index])
                         }
                     }
@@ -123,29 +124,29 @@ class ElasticsearchService(
 
             // 기존 별칭이 가리키는 인덱스 찾기
             val getAliasResponse = elasticsearchClient.indices().getAlias { it.name("address_geo") }
-            val oldIndices = getAliasResponse.result().keys()
+            val oldIndices = getAliasResponse.result().keys
+            val oldIndex = oldIndices.firstOrNull()
+                ?: throw IllegalStateException("기존 별칭이 가리키는 인덱스가 없습니다.")
 
             // 별칭 업데이트 (원자적 작업)
-            elasticsearchClient.indices().updateAliases { u ->
-                u.actions { a ->
-                    // 기존 별칭 제거
-                    oldIndices.forEach { oldIndex ->
-                        a.addAction { action ->
-                            action.remove { r ->
-                                r.index(oldIndex)
-                                 .alias("address_geo")
+            elasticsearchClient.indices().updateAliases(
+                UpdateAliasesRequest.of { builder ->
+                    builder
+                        .actions { requests ->
+                            requests.add { addBuilder ->
+                                addBuilder
+                                    .index(newIndexName)
+                                    .alias("address_geo")
+                            }
+                        }.actions { requests ->
+                            requests.remove { removeBuilder ->
+                                removeBuilder
+                                    .index(oldIndex)
+                                    .alias("address_geo")
                             }
                         }
-                    }
-                    // 새 별칭 추가
-                    a.addAction { action ->
-                        action.add { add ->
-                            add.index(newIndexName)
-                               .alias("address_geo")
-                        }
-                    }
-                }
-            }
+                },
+            )
             logger.info("별칭 업데이트 완료 - 새 인덱스: $newIndexName")
 
             // 이전 인덱스 삭제
