@@ -1,6 +1,7 @@
 package com.example.common.repository
 
 import com.example.common.entity.RoadNameAddress
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
@@ -8,6 +9,18 @@ import org.springframework.stereotype.Repository
 @Repository
 interface RoadNameAddressRepository : JpaRepository<RoadNameAddress, String> {
     
+    @Query("""
+        SELECT DISTINCT r FROM RoadNameAddress r 
+        LEFT JOIN FETCH r.entrances
+    """)
+    fun findAllWithEntrances(): List<RoadNameAddress>
+
+    @Query("""
+        SELECT DISTINCT r FROM RoadNameAddress r 
+        LEFT JOIN FETCH r.entrances
+    """, countQuery = "SELECT COUNT(DISTINCT r) FROM RoadNameAddress r")
+    fun findAllWithEntrancesPaged(pageable: Pageable): List<RoadNameAddress>
+
     @Query("""
         SELECT r FROM RoadNameAddress r 
         WHERE r.roadCode = :roadCode 

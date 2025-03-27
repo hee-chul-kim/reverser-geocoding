@@ -170,8 +170,8 @@ class ElasticsearchService(
 
 data class AddressGeoDocument(
     val fullAddress: String,
-    val latitude: Double,
-    val longitude: Double
+    val latitude: Double?,
+    val longitude: Double?
 )
 
 class ElasticsearchOperationException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)

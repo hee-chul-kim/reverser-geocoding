@@ -1,5 +1,6 @@
 package com.example.daily.job
 
+import com.example.common.entity.RoadNameAddress
 import com.example.daily.service.RoadNameAddressProcessor
 import com.example.common.repository.RoadNameAddressRepository
 import com.example.common.repository.RoadNameAddressEntranceRepository
@@ -63,29 +64,33 @@ class RoadNameAddressJob(
     }
 
     private fun bulkInsertToElasticsearch(indexName: String) {
-        var page = 0
         var processedCount = 0
+        var pageNumber = 0
+        val pageSize = BULK_SIZE
         
         while (true) {
-            val addresses = roadNameAddressRepository.findAllWithEntrances(PageRequest.of(page, BULK_SIZE))
-            if (!addresses.hasContent()) break
+            val addresses = roadNameAddressRepository.findAllWithEntrancesPaged(PageRequest.of(pageNumber, pageSize))
+            if (addresses.isEmpty()) break
 
-            val documents = addresses.content.flatMap { address ->
+            val documents = addresses.flatMap { address ->
                 address.entrances.map { entrance ->
                     AddressGeoDocument(
                         fullAddress = buildFullAddress(address),
-                        latitude = entrance.latitude.toDouble(),
-                        longitude = entrance.longitude.toDouble()
+                        latitude = entrance.latitude?.toDouble(),
+                        longitude = entrance.longitude?.toDouble()
                     )
                 }
             }
 
-            elasticsearchService.bulkInsertAddresses(indexName, documents)
-            processedCount += documents.size
-            logger.info("처리된 문서 수: $processedCount")
+            if (documents.isNotEmpty()) {
+                elasticsearchService.bulkInsertAddresses(indexName, documents)
+                processedCount += documents.size
+                logger.info("처리된 문서 수: $processedCount (페이지: ${pageNumber + 1})")
+            }
             
-            page++
+            pageNumber++
         }
+        logger.info("전체 처리 완료. 총 처리된 문서 수: $processedCount")
     }
 
     private fun buildFullAddress(address: RoadNameAddress): String {
@@ -105,7 +110,7 @@ class RoadNameAddressJob(
             append(address.roadName)
             append(" ")
             append(address.buildingMainNo)
-            if (address.buildingSubNo > 0) {
+            if (address.buildingSubNo != null && address.buildingSubNo!! > 0) {
                 append("-")
                 append(address.buildingSubNo)
             }
