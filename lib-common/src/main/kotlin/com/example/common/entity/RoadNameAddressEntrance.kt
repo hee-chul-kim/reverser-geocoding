@@ -22,11 +22,11 @@ class RoadNameAddressEntrance(
     @Column(name = "entrc_ty", length = 2)
     var entranceCategory: String? = null,  // 출입구 유형 (01: 공용, 02: 차량용)
 
-    @Column(name = "entrc_point_x", length = 17)
-    var longitude: String? = null,  // 출입구좌표X
+    @Column(name = "entrc_point_x", precision = 17, scale = 7)
+    var longitude: Double? = null,  // 출입구좌표X
 
-    @Column(name = "entrc_point_y", length = 17)
-    var latitude: String? = null,  // 출입구좌표Y
+    @Column(name = "entrc_point_y", precision = 17, scale = 7)
+    var latitude: Double? = null,  // 출입구좌표Y
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

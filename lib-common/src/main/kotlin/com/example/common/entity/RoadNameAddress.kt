@@ -27,29 +27,56 @@ class RoadNameAddress(
     @Column(name = "li_kor_nm", length = 40)
     var villageName: String? = null,  // 리명
 
+    @Column(name = "und_yn", length = 1)
+    var undergroundYn: String? = null,  // 지하여부
+
     @Column(name = "road_cd", length = 12)
-    var roadCode: String? = null,  // 도로명코드 (PK2)
+    var roadCode: String? = null,  // 도로명코드
+
+    @Column(name = "road_seq", length = 3)
+    var roadSeq: String? = null,  // 도로명일련번호
+
+    @Column(name = "road_id", length = 12)
+    var roadId: String? = null,  // 도로명ID
 
     @Column(name = "rn_nm", length = 80)
     var roadName: String? = null,  // 도로명
 
     @Column(name = "buld_se_cd", length = 1)
-    var buildingType: String? = null,  // 지하여부 (PK3) - 0:지상, 1:지하, 2:공중, 3:수상
+    var buildingType: String? = null,  // 지하여부
 
-    @Column(name = "buld_mnnm", length = 5)
-    var buildingMainNo: Int? = null,  // 건물본번 (PK4)
+    @Column(name = "buld_mnnm", length = 25)
+    var buildingMainNo: String? = null,  // 건물본번
 
-    @Column(name = "buld_slno", length = 5)
-    var buildingSubNo: Int? = null,  // 건물부번 (PK5)
+    @Column(name = "buld_slno", length = 25)
+    var buildingSubNo: String? = null,  // 건물부번
+
+    @Column(name = "adm_zone_cd", length = 10)
+    var adminZoneCode: String? = null,  // 행정구역코드
+
+    @Column(name = "adm_zone_nm", length = 40)
+    var adminZoneName: String? = null,  // 행정구역명
 
     @Column(name = "bsi_zon_no", length = 5)
-    var postalCode: String? = null,  // 기초구역번호 (우편번호)
+    var postalCode: String? = null,  // 우편번호
+
+    @Column(name = "buld_nm", length = 200)
+    var buildingName: String? = null,  // 건물명
 
     @Column(name = "effect_de", length = 8)
     var effectiveDate: String? = null,  // 효력발생일
 
     @Column(name = "chg_res_cd", length = 2)
-    var changeReasonCode: String? = null,  // 이동사유코드 (31:신규, 34:수정, 63:폐지)
+    var changeReasonCode: String? = null,  // 이동사유코드
+
+    @Column(name = "buld_nm_chg_res", length = 200)
+    var buildingNameChangeReason: String? = null,  // 건물명변경사유
+
+    @Column(name = "buld_nm_chg_hist", length = 1000)
+    var buildingNameChangeHistory: String? = null,  // 건물명변경이력
+
+    @Column(name = "detail_buld_nm", length = 200)
+    var detailBuildingName: String? = null,  // 상세건물명
 
     @OneToMany(mappedBy = "roadNameAddress", cascade = [CascadeType.ALL], orphanRemoval = true)
     var entrances: MutableList<RoadNameAddressEntrance> = mutableListOf(),
@@ -69,13 +96,22 @@ class RoadNameAddress(
         cityCountyName = null,
         townName = null,
         villageName = null,
+        undergroundYn = null,
         roadCode = null,
+        roadSeq = null,
+        roadId = null,
         roadName = null,
         buildingType = null,
         buildingMainNo = null,
         buildingSubNo = null,
+        adminZoneCode = null,
+        adminZoneName = null,
         postalCode = null,
+        buildingName = null,
         effectiveDate = null,
-        changeReasonCode = null
+        changeReasonCode = null,
+        buildingNameChangeReason = null,
+        buildingNameChangeHistory = null,
+        detailBuildingName = null
     )
 } 

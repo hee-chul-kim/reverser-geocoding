@@ -110,7 +110,7 @@ class RoadNameAddressJob(
             append(address.roadName)
             append(" ")
             append(address.buildingMainNo)
-            if (address.buildingSubNo != null && address.buildingSubNo!! > 0) {
+            if (address.buildingSubNo != null) {
                 append("-")
                 append(address.buildingSubNo)
             }

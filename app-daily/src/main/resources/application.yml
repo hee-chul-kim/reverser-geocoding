@@ -12,16 +12,20 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 logging:
   level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+
+app:
+  file:
+    base-dir: /Users/t1100555/Desktop/주소 데이터/data
 
 ---
 spring:
@@ -39,6 +43,10 @@ elasticsearch:
   indexSettings:
     numberOfShards: 1
     numberOfReplicas: 1
+
+app:
+  file:
+    base-dir: /Users/t1100555/Desktop/주소 데이터/data
 
 ---
 spring:
@@ -58,3 +66,7 @@ elasticsearch:
   indexSettings:
     numberOfShards: ${ES_NUMBER_OF_SHARDS:1}
     numberOfReplicas: ${ES_NUMBER_OF_REPLICAS:1}
+
+app:
+  file:
+    base-dir: ${FILE_BASE_DIR:data}
