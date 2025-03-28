@@ -1,9 +1,12 @@
 package com.example.daily.service
 
 import com.example.common.entity.RoadNameAddress
+import com.example.common.entity.RoadNameAddressId
 import com.example.common.entity.RoadNameAddressEntrance
+import com.example.common.entity.RoadNameAddressEntranceId
 import com.example.common.repository.RoadNameAddressRepository
 import com.example.common.repository.RoadNameAddressEntranceRepository
+import com.example.common.util.CoordinateTransformer
 import com.example.daily.config.FileConfig
 import com.fasterxml.jackson.databind.MappingIterator
 import com.fasterxml.jackson.dataformat.csv.CsvMapper
@@ -11,18 +14,19 @@ import com.fasterxml.jackson.dataformat.csv.CsvSchema
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStreamReader
 import java.nio.charset.Charset
 import java.nio.file.Paths
+import java.time.ZonedDateTime
 
 @Service
 open class RoadNameAddressProcessor(
     private val roadNameAddressRepository: RoadNameAddressRepository,
     private val roadNameAddressEntranceRepository: RoadNameAddressEntranceRepository,
-    private val fileConfig: FileConfig
+    private val fileConfig: FileConfig,
+    private val coordinateTransformer: CoordinateTransformer
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val csvMapper = CsvMapper().apply { registerKotlinModule() }
@@ -83,39 +87,39 @@ open class RoadNameAddressProcessor(
         }
     }
 
-    @Transactional
     open fun processAddressFile(filePath: String) {
         logger.info("Starting to process address file: $filePath")
         
         val schema = CsvSchema.builder()
-            .addColumn("addressManagementNo")         // 도로명주소관리번호
-            .addColumn("adminCode")                   // 법정동코드
-            .addColumn("cityProvinceName")            // 시도명
-            .addColumn("cityCountyName")              // 시군구명
-            .addColumn("townName")                    // 읍면동명
-            .addColumn("villageName")                 // 리명
-            .addColumn("undergroundYn")               // 지하여부
-            .addColumn("roadCode")                    // 도로명코드
-            .addColumn("roadSeq")                     // 도로명일련번호
-            .addColumn("roadId")                      // 도로명ID
-            .addColumn("roadName")                    // 도로명
-            .addColumn("buildingType")                // 지하여부
-            .addColumn("buildingMainNo")              // 건물본번
-            .addColumn("buildingSubNo")               // 건물부번
-            .addColumn("adminZoneCode")               // 행정구역코드
-            .addColumn("adminZoneName")               // 행정구역명
-            .addColumn("postalCode")                  // 우편번호
-            .addColumn("buildingName")                // 건물명
-            .addColumn("effectiveDate")               // 효력발생일
-            .addColumn("changeReasonCode")            // 이동사유코드
-            .addColumn("buildingNameChangeReason")    // 건물명변경사유
-            .addColumn("buildingNameChangeHistory")   // 건물명변경이력
-            .addColumn("detailBuildingName")          // 상세건물명
+            .addColumn("addressManagementNo")         // 1. 도로명주소관리번호
+            .addColumn("legalDongCode")              // 2. 법정동코드
+            .addColumn("sidoName")                   // 3. 시도명
+            .addColumn("sigunguName")                // 4. 시군구명
+            .addColumn("legalEmdName")               // 5. 법정읍면동명
+            .addColumn("legalRiName")                // 6. 법정리명
+            .addColumn("isMountain")                 // 7. 산여부
+            .addColumn("jibunMainNo")                // 8. 지번본번(번지)
+            .addColumn("jibunSubNo")                 // 9. 지번부번(호)
+            .addColumn("roadNameCode")               // 10. 도로명코드
+            .addColumn("roadName")                   // 11. 도로명
+            .addColumn("isBasement")                 // 12. 지하여부
+            .addColumn("buildingMainNo")             // 13. 건물본번
+            .addColumn("buildingSubNo")              // 14. 건물부번
+            .addColumn("adminDongCode")              // 15. 행정동코드
+            .addColumn("adminDongName")              // 16. 행정동명
+            .addColumn("zipCode")                    // 17. 기초구역번호(우편번호)
+            .addColumn("previousAddress")            // 18. 이전도로명주소
+            .addColumn("effectiveDate")              // 19. 효력발생일
+            .addColumn("isApartment")                // 20. 공동주택구분
+            .addColumn("changeReasonCode")           // 21. 이동사유코드
+            .addColumn("buildingName")               // 22. 건축물대장건물명
+            .addColumn("sigunguBuildingName")        // 23. 시군구용건물명
+            .addColumn("note")                       // 24. 비고
             .build()
             .withHeader()
-            .withColumnSeparator('|')  // CSV 구분자를 '|'로 변경
-            .withNullValue("")         // 빈 문자열을 null로 처리
-            .withQuoteChar('"')        // 쌍따옴표를 quote 문자로 사용
+            .withColumnSeparator('|')
+            .withNullValue("")
+            .withQuoteChar('"')
 
         try {
             val file = File(filePath)
@@ -137,7 +141,7 @@ open class RoadNameAddressProcessor(
                 for (data in iter) {
                     if (processed >= maxRecords) {
                         logger.info("Reached maximum record limit of $maxRecords")
-                        break  // 루프를 완전히 종료
+                        break
                     }
 
                     try {
@@ -146,103 +150,141 @@ open class RoadNameAddressProcessor(
                             continue
                         }
 
+                        val id = RoadNameAddressId(
+                            addressManagementNo = data.addressManagementNo,
+                            roadNameCode = data.roadNameCode ?: "",
+                            isBasement = data.isBasement ?: "0",
+                            buildingMainNo = data.buildingMainNo?.toIntOrNull() ?: 0,
+                            buildingSubNo = data.buildingSubNo?.toIntOrNull() ?: 0
+                        )
+
                         when (data.changeReasonCode) {
-                            "0", "31", "34" -> { // 신규 또는 수정
-                                val address = roadNameAddressRepository.findById(data.addressManagementNo).orElse(null)
+                            null, "31", "34", "63" -> { // 신규, 변경, 폐지
+                                val existingAddress = roadNameAddressRepository.findById(id).orElse(null)
                                 
-                                if (address != null) {
-                                    // Update existing address
-                                    address.apply {
-                                        adminCode = data.adminCode ?: adminCode
-                                        cityProvinceName = data.cityProvinceName ?: cityProvinceName
-                                        cityCountyName = data.cityCountyName ?: cityCountyName
-                                        townName = data.townName ?: townName
-                                        villageName = data.villageName
-                                        roadCode = data.roadCode ?: roadCode
-                                        roadName = data.roadName ?: roadName
-                                        buildingType = data.buildingType ?: buildingType
-                                        buildingMainNo = data.buildingMainNo ?: buildingMainNo
-                                        buildingSubNo = data.buildingSubNo ?: buildingSubNo
-                                        postalCode = data.postalCode ?: postalCode
-                                        buildingName = data.buildingName ?: buildingName
-                                        effectiveDate = data.effectiveDate ?: effectiveDate
-                                        changeReasonCode = data.changeReasonCode
+                                when (data.changeReasonCode) {
+                                    null, "31", "34" -> { // 신규 또는 변경
+                                        if (existingAddress != null) {
+                                            // Update existing address
+                                            val updatedAddress = RoadNameAddress(
+                                                addressManagementNo = id.addressManagementNo,
+                                                legalDongCode = data.legalDongCode ?: "",
+                                                sidoName = data.sidoName,
+                                                sigunguName = data.sigunguName,
+                                                legalEmdName = data.legalEmdName,
+                                                legalRiName = data.legalRiName,
+                                                isMountain = data.isMountain?.equals("1") ?: false,
+                                                jibunMainNo = data.jibunMainNo?.toIntOrNull() ?: 0,
+                                                jibunSubNo = data.jibunSubNo?.toIntOrNull() ?: 0,
+                                                roadNameCode = id.roadNameCode,
+                                                roadName = data.roadName,
+                                                isBasement = id.isBasement,
+                                                buildingMainNo = id.buildingMainNo,
+                                                buildingSubNo = id.buildingSubNo,
+                                                adminDongCode = data.adminDongCode,
+                                                adminDongName = data.adminDongName,
+                                                zipCode = data.zipCode,
+                                                previousAddress = data.previousAddress,
+                                                effectiveDate = data.effectiveDate,
+                                                isApartment = data.isApartment?.equals("1") ?: false,
+                                                changeReasonCode = data.changeReasonCode,
+                                                buildingName = data.buildingName,
+                                                sigunguBuildingName = data.sigunguBuildingName,
+                                                note = data.note,
+                                                entrance = existingAddress.entrance,
+                                                createdAt = existingAddress.createdAt,
+                                                updatedAt = ZonedDateTime.now(),
+                                                deletedAt = null,
+                                                version = existingAddress.version
+                                            )
+                                            roadNameAddressRepository.save(updatedAddress)
+                                            logger.info("Updated address: ${id.addressManagementNo}")
+                                        } else {
+                                            // Create new address
+                                            val newAddress = RoadNameAddress(
+                                                addressManagementNo = id.addressManagementNo,
+                                                legalDongCode = data.legalDongCode ?: "",
+                                                sidoName = data.sidoName,
+                                                sigunguName = data.sigunguName,
+                                                legalEmdName = data.legalEmdName,
+                                                legalRiName = data.legalRiName,
+                                                isMountain = data.isMountain?.equals("1") ?: false,
+                                                jibunMainNo = data.jibunMainNo?.toIntOrNull() ?: 0,
+                                                jibunSubNo = data.jibunSubNo?.toIntOrNull() ?: 0,
+                                                roadNameCode = id.roadNameCode,
+                                                roadName = data.roadName,
+                                                isBasement = id.isBasement,
+                                                buildingMainNo = id.buildingMainNo,
+                                                buildingSubNo = id.buildingSubNo,
+                                                adminDongCode = data.adminDongCode,
+                                                adminDongName = data.adminDongName,
+                                                zipCode = data.zipCode,
+                                                previousAddress = data.previousAddress,
+                                                effectiveDate = data.effectiveDate,
+                                                isApartment = data.isApartment?.equals("1") ?: false,
+                                                changeReasonCode = data.changeReasonCode,
+                                                buildingName = data.buildingName,
+                                                sigunguBuildingName = data.sigunguBuildingName,
+                                                note = data.note
+                                            )
+                                            roadNameAddressRepository.save(newAddress)
+                                            logger.info("Created new address: ${id.addressManagementNo}")
+                                        }
                                     }
-                                    roadNameAddressRepository.save(address)
-                                } else {
-                                    // Create new address
-                                    val newAddress = RoadNameAddress(
-                                        addressManagementNo = data.addressManagementNo,
-                                        adminCode = data.adminCode ?: "",
-                                        cityProvinceName = data.cityProvinceName ?: "",
-                                        cityCountyName = data.cityCountyName ?: "",
-                                        townName = data.townName ?: "",
-                                        villageName = data.villageName,
-                                        roadCode = data.roadCode ?: "",
-                                        roadName = data.roadName ?: "",
-                                        buildingType = data.buildingType ?: "",
-                                        buildingMainNo = data.buildingMainNo ?: "",
-                                        buildingSubNo = data.buildingSubNo ?: "",
-                                        postalCode = data.postalCode ?: "",
-                                        buildingName = data.buildingName ?: "",
-                                        effectiveDate = data.effectiveDate ?: "",
-                                        changeReasonCode = data.changeReasonCode
-                                    )
-                                    roadNameAddressRepository.save(newAddress)
+                                    "63" -> { // 폐지
+                                        if (existingAddress != null) {
+                                            existingAddress.deletedAt = ZonedDateTime.now()
+                                            roadNameAddressRepository.save(existingAddress)
+                                            logger.info("Marked address as deleted: ${id.addressManagementNo}")
+                                        }
+                                    }
                                 }
                             }
-                            "63" -> { // 폐지
-                                roadNameAddressRepository.findById(data.addressManagementNo).ifPresent { address ->
-                                    roadNameAddressRepository.delete(address)
-                                }
+                            else -> {
+                                logger.debug("Skipping record with change reason code: ${data.changeReasonCode}")
                             }
                         }
+                        processed++
                     } catch (e: Exception) {
-                        logger.error("Error processing address record: $data", e)
-                    }
-                    
-                    processed++
-                    if (processed % 10 == 0) {
-                        logger.info("Processed $processed records")
+                        logger.error("Error processing record: ${e.message}", e)
                     }
                 }
             }
-            logger.info("Completed processing $processed records")
+            logger.info("Processed $processed records from $filePath")
         } catch (e: Exception) {
-            logger.error("Error processing file: ${e.message}", e)
+            logger.error("Error processing file $filePath: ${e.message}", e)
             throw e
         }
     }
 
-    @Transactional
-    fun processEntranceFile(filePath: String) {
+    open fun processEntranceFile(filePath: String) {
         logger.info("Starting to process entrance file: $filePath")
         
         val schema = CsvSchema.builder()
-            .addColumn("addressManagementNo")    // 도로명주소관리번호
-            .addColumn("adminCode")              // 법정동코드
-            .addColumn("cityProvinceName")       // 시도명
-            .addColumn("cityCountyName")         // 시군구명
-            .addColumn("townName")               // 읍면동명
-            .addColumn("villageName")            // 리명
-            .addColumn("roadCode")               // 도로명코드
-            .addColumn("roadName")               // 도로명
-            .addColumn("buildingType")           // 지하여부
-            .addColumn("buildingMainNo")         // 건물본번
-            .addColumn("buildingSubNo")          // 건물부번
-            .addColumn("entranceNo")             // 출입구일련번호
-            .addColumn("changeDate")             // 변경일자
-            .addColumn("blank")                  // 공백
-            .addColumn("entranceManagementNo")   // 출입구관리번호
-            .addColumn("entranceType")           // 출입구구분
-            .addColumn("entranceCategory")       // 출입구유형
-            .addColumn("longitude")              // X좌표
-            .addColumn("latitude")               // Y좌표
+            .addColumn("addressManagementNo")         // 1. 도로명주소관리번호
+            .addColumn("legalDongCode")              // 2. 법정동코드
+            .addColumn("sidoName")                   // 3. 시도명
+            .addColumn("sigunguName")                // 4. 시군구명
+            .addColumn("legalEmdName")               // 5. 법정읍면동명
+            .addColumn("legalRiName")                // 6. 법정리명
+            .addColumn("roadNameCode")               // 7. 도로명코드
+            .addColumn("roadName")                   // 8. 도로명
+            .addColumn("isBasement")                 // 9. 지하여부
+            .addColumn("buildingMainNo")             // 10. 건물본번
+            .addColumn("buildingSubNo")              // 11. 건물부번
+            .addColumn("zipCode")                    // 12. 기초구역번호
+            .addColumn("effectiveDate")              // 13. 효력발생일
+            .addColumn("changeReasonCode")           // 14. 이동사유코드
+            .addColumn("entranceNo")                 // 15. 출입구일련번호
+            .addColumn("entranceType")               // 16. 출입구구분
+            .addColumn("entranceCategory")           // 17. 출입구 유형
+            .addColumn("longitude")                  // 18. 출입구좌표X
+            .addColumn("latitude")                   // 19. 출입구좌표Y
             .build()
             .withHeader()
-            .withColumnSeparator('|')           // 구분자를 '|'로 변경
-            .withNullValue("")                  // 빈 문자열을 null로 처리
-            .withQuoteChar('"')                 // 쌍따옴표를 quote 문자로 사용
+            .withColumnSeparator('|')
+            .withNullValue("")
+            .withQuoteChar('"')
 
         try {
             val file = File(filePath)
@@ -264,120 +306,103 @@ open class RoadNameAddressProcessor(
                 for (data in iter) {
                     if (processed >= maxRecords) {
                         logger.info("Reached maximum record limit of $maxRecords")
-                        break  // 루프를 완전히 종료
+                        break
                     }
 
                     try {
-                        if (data.addressManagementNo.isNullOrBlank() || data.entranceNo.isNullOrBlank()) {
-                            logger.warn("Skipping record with null or blank addressManagementNo or entranceNo")
+                        if (data.addressManagementNo.isNullOrBlank()) {
+                            logger.warn("Skipping record with null or blank addressManagementNo")
                             continue
                         }
 
-                        // 좌표값 유효성 검사
-                        if (!data.longitude.isNullOrBlank() && !data.latitude.isNullOrBlank()) {
-                            try {
-                                val lon = data.longitude.toDouble()
-                                val lat = data.latitude.toDouble()
-                                
-                                val address = roadNameAddressRepository.findById(data.addressManagementNo).orElse(null)
-                                if (address != null) {
-                                    val entrance = roadNameAddressEntranceRepository.findById(data.entranceNo).orElse(null)
-                                    
-                                    if (entrance != null) {
-                                        // Update existing entrance
-                                        entrance.apply {
-                                            roadNameAddress = address
-                                            entranceType = data.entranceType
-                                            entranceCategory = data.entranceCategory
-                                            longitude = lon
-                                            latitude = lat
-                                        }
-                                        roadNameAddressEntranceRepository.save(entrance)
-                                    } else {
-                                        // Create new entrance
-                                        val newEntrance = RoadNameAddressEntrance(
-                                            entranceNo = data.entranceNo,
-                                            roadNameAddress = address,
-                                            entranceType = data.entranceType ?: "",
-                                            entranceCategory = data.entranceCategory ?: "",
-                                            longitude = lon,
-                                            latitude = lat
-                                        )
-                                        roadNameAddressEntranceRepository.save(newEntrance)
-                                    }
-                                } else {
-                                    logger.warn("Address not found for entrance: ${data.entranceNo}, addressManagementNo: ${data.addressManagementNo}")
-                                }
-                            } catch (e: NumberFormatException) {
-                                logger.warn("Invalid coordinates for entrance: ${data.entranceNo}, longitude: ${data.longitude}, latitude: ${data.latitude}")
-                                continue
-                            }
-                        } else {
-                            logger.warn("Missing coordinates for entrance: ${data.entranceNo}")
-                            continue
-                        }
+                        // 좌표 변환
+                        val (transformedLat, transformedLon) = coordinateTransformer.transform(
+                            data.latitude?.toDoubleOrNull() ?: 0.0,
+                            data.longitude?.toDoubleOrNull() ?: 0.0
+                        )
+
+                        // 출입구 정보 생성 또는 업데이트
+                        val entranceId = RoadNameAddressEntranceId(
+                            addressManagementNo = data.addressManagementNo,
+                            roadNameCode = data.roadNameCode ?: "",
+                            isBasement = data.isBasement ?: "0",
+                            buildingMainNo = data.buildingMainNo?.toIntOrNull() ?: 0,
+                            buildingSubNo = data.buildingSubNo?.toIntOrNull() ?: 0
+                        )
+
+                        val entrance = RoadNameAddressEntrance(
+                            entranceNo = data.entranceNo ?: "1",
+                            addressManagementNo = entranceId.addressManagementNo,
+                            roadNameCode = entranceId.roadNameCode,
+                            isBasement = entranceId.isBasement,
+                            buildingMainNo = entranceId.buildingMainNo,
+                            buildingSubNo = entranceId.buildingSubNo,
+                            entranceType = data.entranceType ?: "RM",
+                            entranceCategory = data.entranceCategory ?: "01",
+                            longitude = transformedLon,
+                            latitude = transformedLat
+                        )
+
+                        roadNameAddressEntranceRepository.save(entrance)
+                        processed++
                     } catch (e: Exception) {
-                        logger.error("Error processing entrance record: $data", e)
-                    }
-                    
-                    processed++
-                    if (processed % 10 == 0) {
-                        logger.info("Processed $processed records")
+                        logger.error("Error processing record: ${e.message}", e)
                     }
                 }
             }
-            logger.info("Completed processing $processed records")
+            logger.info("Processed $processed records from $filePath")
         } catch (e: Exception) {
-            logger.error("Error processing file: ${e.message}", e)
+            logger.error("Error processing file $filePath: ${e.message}", e)
             throw e
         }
     }
 
     data class RoadNameAddressData(
-        val addressManagementNo: String? = null,      // 도로명주소관리번호
-        val adminCode: String? = null,                // 법정동코드
-        val cityProvinceName: String? = null,         // 시도명
-        val cityCountyName: String? = null,           // 시군구명
-        val townName: String? = null,                 // 읍면동명
-        val villageName: String? = null,              // 리명
-        val undergroundYn: String? = null,            // 지하여부
-        val roadCode: String? = null,                 // 도로명코드
-        val roadSeq: String? = null,                  // 도로명일련번호
-        val roadId: String? = null,                   // 도로명ID
-        val roadName: String? = null,                 // 도로명
-        val buildingType: String? = null,             // 지하여부
-        val buildingMainNo: String? = null,           // 건물본번
-        val buildingSubNo: String? = null,            // 건물부번
-        val adminZoneCode: String? = null,            // 행정구역코드
-        val adminZoneName: String? = null,            // 행정구역명
-        val postalCode: String? = null,               // 우편번호
-        val buildingName: String? = null,             // 건물명
-        val effectiveDate: String? = null,            // 효력발생일
-        val changeReasonCode: String? = null,         // 이동사유코드
-        val buildingNameChangeReason: String? = null,  // 건물명변경사유
-        val buildingNameChangeHistory: String? = null, // 건물명변경이력
-        val detailBuildingName: String? = null        // 상세건물명
+        val addressManagementNo: String? = null,      // 1. 도로명주소관리번호
+        val legalDongCode: String? = null,            // 2. 법정동코드
+        val sidoName: String? = null,                 // 3. 시도명
+        val sigunguName: String? = null,              // 4. 시군구명
+        val legalEmdName: String? = null,             // 5. 법정읍면동명
+        val legalRiName: String? = null,              // 6. 법정리명
+        val isMountain: String? = null,               // 7. 산여부
+        val jibunMainNo: String? = null,              // 8. 지번본번(번지)
+        val jibunSubNo: String? = null,               // 9. 지번부번(호)
+        val roadNameCode: String? = null,             // 10. 도로명코드
+        val roadName: String? = null,                 // 11. 도로명
+        val isBasement: String? = null,               // 12. 지하여부
+        val buildingMainNo: String? = null,           // 13. 건물본번
+        val buildingSubNo: String? = null,            // 14. 건물부번
+        val adminDongCode: String? = null,            // 15. 행정동코드
+        val adminDongName: String? = null,            // 16. 행정동명
+        val zipCode: String? = null,                  // 17. 기초구역번호(우편번호)
+        val previousAddress: String? = null,          // 18. 이전도로명주소
+        val effectiveDate: String? = null,            // 19. 효력발생일
+        val isApartment: String? = null,              // 20. 공동주택구분
+        val changeReasonCode: String? = null,         // 21. 이동사유코드
+        val buildingName: String? = null,             // 22. 건축물대장건물명
+        val sigunguBuildingName: String? = null,      // 23. 시군구용건물명
+        val note: String? = null                      // 24. 비고
     )
 
     data class EntranceData(
-        val addressManagementNo: String? = null,      // 도로명주소관리번호
-        val adminCode: String? = null,                // 법정동코드
-        val cityProvinceName: String? = null,         // 시도명
-        val cityCountyName: String? = null,           // 시군구명
-        val townName: String? = null,                 // 읍면동명
-        val villageName: String? = null,              // 리명
-        val roadCode: String? = null,                 // 도로명코드
-        val roadName: String? = null,                 // 도로명
-        val buildingType: String? = null,             // 지하여부
-        val buildingMainNo: String? = null,           // 건물본번
-        val buildingSubNo: String? = null,            // 건물부번
-        val entranceNo: String? = null,               // 출입구일련번호
-        val changeDate: String? = null,               // 변경일자
-        val blank: String? = null,                    // 공백
-        val entranceManagementNo: String? = null,     // 출입구관리번호
-        val entranceType: String? = null,             // 출입구구분
-        val entranceCategory: String? = null,         // 출입구유형
-        val longitude: String? = null,                // X좌표
-        val latitude: String? = null                  // Y좌표
+        val addressManagementNo: String? = null,      // 1. 도로명주소관리번호
+        val legalDongCode: String? = null,            // 2. 법정동코드
+        val sidoName: String? = null,                 // 3. 시도명
+        val sigunguName: String? = null,              // 4. 시군구명
+        val legalEmdName: String? = null,             // 5. 법정읍면동명
+        val legalRiName: String? = null,              // 6. 법정리명
+        val roadNameCode: String? = null,             // 7. 도로명코드
+        val roadName: String? = null,                 // 8. 도로명
+        val isBasement: String? = null,               // 9. 지하여부
+        val buildingMainNo: String? = null,           // 10. 건물본번
+        val buildingSubNo: String? = null,            // 11. 건물부번
+        val zipCode: String? = null,                  // 12. 기초구역번호
+        val effectiveDate: String? = null,            // 13. 효력발생일
+        val changeReasonCode: String? = null,         // 14. 이동사유코드
+        val entranceNo: String? = null,               // 15. 출입구일련번호
+        val entranceType: String? = null,             // 16. 출입구구분
+        val entranceCategory: String? = null,         // 17. 출입구 유형
+        val longitude: String? = null,                // 18. 출입구좌표X
+        val latitude: String? = null                  // 19. 출입구좌표Y
     )
 } 

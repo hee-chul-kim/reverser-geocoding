@@ -1,117 +1,138 @@
 package com.example.common.entity
 
 import jakarta.persistence.*
-import org.hibernate.annotations.CreationTimestamp
-import org.hibernate.annotations.UpdateTimestamp
-import java.time.LocalDateTime
+import java.io.Serializable
+import java.time.ZonedDateTime
 
 @Entity
 @Table(name = "road_name_addresses")
+@IdClass(RoadNameAddressId::class)
 class RoadNameAddress(
     @Id
-    @Column(name = "adr_mng_no", length = 26)
-    val addressManagementNo: String? = null,  // 도로명주소관리번호 (PK1)
+    @Column(name = "address_management_no", nullable = false)
+    val addressManagementNo: String, // 도로명주소관리번호 (PK1)
 
-    @Column(name = "adm_cd", length = 10)
-    var adminCode: String? = null,  // 법정동코드
+    @Column(name = "legal_dong_code")
+    val legalDongCode: String, // 법정동코드
 
-    @Column(name = "ctp_kor_nm", length = 40)
-    var cityProvinceName: String? = null,  // 시도명
+    @Column(name = "sido_name")
+    val sidoName: String? = null, // 시도명
 
-    @Column(name = "sig_kor_nm", length = 40)
-    var cityCountyName: String? = null,  // 시군구명
+    @Column(name = "sigungu_name")
+    val sigunguName: String? = null, // 시군구명
 
-    @Column(name = "emd_kor_nm", length = 40)
-    var townName: String? = null,  // 읍면동명
+    @Column(name = "legal_emd_name")
+    val legalEmdName: String? = null, // 법정읍면동명
 
-    @Column(name = "li_kor_nm", length = 40)
-    var villageName: String? = null,  // 리명
+    @Column(name = "legal_ri_name")
+    val legalRiName: String? = null, // 법정리명
 
-    @Column(name = "und_yn", length = 1)
-    var undergroundYn: String? = null,  // 지하여부
+    @Column(name = "is_mountain")
+    val isMountain: Boolean = false, // 산여부
 
-    @Column(name = "road_cd", length = 12)
-    var roadCode: String? = null,  // 도로명코드
+    @Column(name = "jibun_main_no")
+    val jibunMainNo: Int = 0, // 지번본번(번지)
 
-    @Column(name = "road_seq", length = 3)
-    var roadSeq: String? = null,  // 도로명일련번호
+    @Column(name = "jibun_sub_no")
+    val jibunSubNo: Int = 0, // 지번부번(호)
 
-    @Column(name = "road_id", length = 12)
-    var roadId: String? = null,  // 도로명ID
+    @Id
+    @Column(name = "road_name_code", nullable = false)
+    val roadNameCode: String, // 도로명코드 (PK2)
 
-    @Column(name = "rn_nm", length = 80)
-    var roadName: String? = null,  // 도로명
+    @Column(name = "road_name")
+    val roadName: String? = null, // 도로명
 
-    @Column(name = "buld_se_cd", length = 1)
-    var buildingType: String? = null,  // 지하여부
+    @Id
+    @Column(name = "is_basement", length = 1, nullable = false)
+    val isBasement: String = "0", // 지하여부 (PK3) (0:지상, 1:지하, 2:공중, 3:수상)
 
-    @Column(name = "buld_mnnm", length = 25)
-    var buildingMainNo: String? = null,  // 건물본번
+    @Id
+    @Column(name = "building_main_no", nullable = false)
+    val buildingMainNo: Int, // 건물본번 (PK4)
 
-    @Column(name = "buld_slno", length = 25)
-    var buildingSubNo: String? = null,  // 건물부번
+    @Id
+    @Column(name = "building_sub_no", nullable = false)
+    val buildingSubNo: Int, // 건물부번 (PK5)
 
-    @Column(name = "adm_zone_cd", length = 10)
-    var adminZoneCode: String? = null,  // 행정구역코드
+    @Column(name = "admin_dong_code")
+    val adminDongCode: String? = null, // 행정동코드
 
-    @Column(name = "adm_zone_nm", length = 40)
-    var adminZoneName: String? = null,  // 행정구역명
+    @Column(name = "admin_dong_name")
+    val adminDongName: String? = null, // 행정동명
 
-    @Column(name = "bsi_zon_no", length = 5)
-    var postalCode: String? = null,  // 우편번호
+    @Column(name = "zip_code")
+    val zipCode: String? = null, // 기초구역번호(우편번호)
 
-    @Column(name = "buld_nm", length = 200)
-    var buildingName: String? = null,  // 건물명
+    @Column(name = "previous_address")
+    val previousAddress: String? = null, // 이전도로명주소
 
-    @Column(name = "effect_de", length = 8)
-    var effectiveDate: String? = null,  // 효력발생일
+    @Column(name = "effective_date")
+    val effectiveDate: String? = null, // 효력발생일
 
-    @Column(name = "chg_res_cd", length = 2)
-    var changeReasonCode: String? = null,  // 이동사유코드
+    @Column(name = "is_apartment")
+    val isApartment: Boolean = false, // 공동주택구분
 
-    @Column(name = "buld_nm_chg_res", length = 200)
-    var buildingNameChangeReason: String? = null,  // 건물명변경사유
+    @Column(name = "change_reason_code")
+    val changeReasonCode: String? = null, // 이동사유코드
 
-    @Column(name = "buld_nm_chg_hist", length = 1000)
-    var buildingNameChangeHistory: String? = null,  // 건물명변경이력
+    @Column(name = "building_name")
+    val buildingName: String? = null, // 건축물대장건물명
 
-    @Column(name = "detail_buld_nm", length = 200)
-    var detailBuildingName: String? = null,  // 상세건물명
+    @Column(name = "sigungu_building_name")
+    val sigunguBuildingName: String? = null, // 시군구용건물명
 
-    @OneToMany(mappedBy = "roadNameAddress", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var entrances: MutableList<RoadNameAddressEntrance> = mutableListOf(),
+    @Column(name = "note")
+    val note: String? = null, // 비고
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: LocalDateTime? = null,
+    @OneToOne(mappedBy = "roadNameAddress")
+    var entrance: RoadNameAddressEntrance? = null, // 출입구 정보 (1:1)
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: LocalDateTime? = null
+    @Column(name = "created_at")
+    val createdAt: ZonedDateTime = ZonedDateTime.now(), // 생성일시
+
+    @Column(name = "updated_at")
+    var updatedAt: ZonedDateTime = ZonedDateTime.now(), // 수정일시
+
+    @Column(name = "deleted_at")
+    var deletedAt: ZonedDateTime? = null, // 삭제일시
+
+    @Version
+    @Column(name = "version")
+    var version: Int = 0 // 버전
 ) {
-    constructor() : this(
-        addressManagementNo = null,
-        adminCode = null,
-        cityProvinceName = null,
-        cityCountyName = null,
-        townName = null,
-        villageName = null,
-        undergroundYn = null,
-        roadCode = null,
-        roadSeq = null,
-        roadId = null,
-        roadName = null,
-        buildingType = null,
-        buildingMainNo = null,
-        buildingSubNo = null,
-        adminZoneCode = null,
-        adminZoneName = null,
-        postalCode = null,
-        buildingName = null,
-        effectiveDate = null,
-        changeReasonCode = null,
-        buildingNameChangeReason = null,
-        buildingNameChangeHistory = null,
-        detailBuildingName = null
-    )
+    // 연관관계 편의 메서드
+    fun connectEntrance(entrance: RoadNameAddressEntrance?) {
+        this.entrance = entrance
+        entrance?.roadNameAddress = this
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as RoadNameAddress
+
+        if (addressManagementNo != other.addressManagementNo) return false
+        if (roadNameCode != other.roadNameCode) return false
+        if (buildingMainNo != other.buildingMainNo) return false
+        if (buildingSubNo != other.buildingSubNo) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = addressManagementNo.hashCode()
+        result = 31 * result + roadNameCode.hashCode()
+        result = 31 * result + buildingMainNo
+        result = 31 * result + buildingSubNo
+        return result
+    }
+
+    override fun toString(): String {
+        return "RoadNameAddress(addressManagementNo='$addressManagementNo', " +
+               "roadNameCode='$roadNameCode', " +
+               "buildingMainNo=$buildingMainNo, " +
+               "buildingSubNo=$buildingSubNo)"
+    }
 } 

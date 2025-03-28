@@ -69,15 +69,15 @@ class RoadNameAddressJob(
         val pageSize = BULK_SIZE
         
         while (true) {
-            val addresses = roadNameAddressRepository.findAllWithEntrancesPaged(PageRequest.of(pageNumber, pageSize))
-            if (addresses.isEmpty()) break
+            val page = roadNameAddressRepository.findAllWithEntrancesPaged(PageRequest.of(pageNumber, pageSize))
+            if (!page.hasContent()) break
 
-            val documents = addresses.flatMap { address ->
-                address.entrances.map { entrance ->
+            val documents = page.content.mapNotNull { address ->
+                address.entrance?.let { entrance ->
                     AddressGeoDocument(
                         fullAddress = buildFullAddress(address),
-                        latitude = entrance.latitude?.toDouble(),
-                        longitude = entrance.longitude?.toDouble()
+                        latitude = entrance.latitude,
+                        longitude = entrance.longitude
                     )
                 }
             }
@@ -94,27 +94,26 @@ class RoadNameAddressJob(
     }
 
     private fun buildFullAddress(address: RoadNameAddress): String {
-        return buildString {
-            append(address.cityProvinceName)
-            append(" ")
-            append(address.cityCountyName)
-            append(" ")
-            if (!address.townName.isNullOrBlank()) {
-                append(address.townName)
-                append(" ")
+        val parts = mutableListOf<String>()
+        
+        address.sidoName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        address.sigunguName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        address.legalEmdName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        address.roadName?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        
+        val buildingNumber = buildString {
+            if (address.isBasement == "1") {
+                append("지하 ")
             }
-            if (!address.villageName.isNullOrBlank()) {
-                append(address.villageName)
-                append(" ")
-            }
-            append(address.roadName)
-            append(" ")
             append(address.buildingMainNo)
-            if (address.buildingSubNo != null) {
+            if (address.buildingSubNo > 0) {
                 append("-")
                 append(address.buildingSubNo)
             }
         }
+        parts.add(buildingNumber)
+        
+        return parts.joinToString(" ")
     }
 
     private fun clearExistingData() {

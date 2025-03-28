@@ -43,8 +43,6 @@ open class ElasticsearchConfig(
 
         // 최대 재시도 타임아웃 설정
         builder.setHttpClientConfigCallback { httpClientBuilder ->
-            //httpClientBuilder.setMaxRetryTimeoutMillis(properties.maxRetryTimeoutMillis)
-
             // 인증 정보가 있는 경우에만 설정
             if (!properties.username.isNullOrBlank() && !properties.password.isNullOrBlank()) {
                 val credentialsProvider = BasicCredentialsProvider()

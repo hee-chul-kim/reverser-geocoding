@@ -11,17 +11,25 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: false
     properties:
       hibernate:
         format_sql: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    clean-disabled: false
+    clean-on-validation-error: true
+
 logging:
   level:
     org.hibernate.SQL: OFF
     org.hibernate.type.descriptor.sql.BasicBinder: OFF
+    org.flywaydb: DEBUG
 
 app:
   file:
