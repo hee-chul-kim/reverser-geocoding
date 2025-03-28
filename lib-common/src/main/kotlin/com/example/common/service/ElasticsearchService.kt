@@ -1,6 +1,12 @@
 package com.example.common.service
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient
+import co.elastic.clients.elasticsearch._types.DistanceUnit
+import co.elastic.clients.elasticsearch._types.GeoLocation
+import co.elastic.clients.elasticsearch._types.SortOptions
+import co.elastic.clients.elasticsearch._types.SortOrder
+import co.elastic.clients.elasticsearch._types.query_dsl.GeoDistanceQuery
+import co.elastic.clients.elasticsearch._types.query_dsl.Query
 import co.elastic.clients.elasticsearch.core.*
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation
 import co.elastic.clients.elasticsearch.indices.*
@@ -18,6 +24,7 @@ class ElasticsearchService(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val MAX_RETRY_COUNT = 3
     private val RETRY_DELAY_MS = 1000L
+    private val indexAlias = "address_geo"
 
     fun createAddressGeoIndex(indexName: String) {
         try {
@@ -166,6 +173,64 @@ class ElasticsearchService(
             throw ElasticsearchOperationException("별칭 업데이트 실패", e)
         }
     }
+
+    fun findNearestAddress(lat: Double, lon: Double): AddressSearchResult? {
+        try {
+            val geoQuery: Query = GeoDistanceQuery.of { g ->
+                g.field("location")
+                    .distance("1km")
+                    .location(
+                        GeoLocation.of { loc ->
+                            loc.latlon { ll -> ll.lat(lat).lon(lon) }
+                        }
+                    )
+            }._toQuery()
+
+            // 정렬 조건 (_geo_distance)
+            val geoSort = SortOptions.of { sort ->
+                sort.geoDistance { gd ->
+                    gd.field("location")
+                        .location { loc -> loc.latlon { ll -> ll.lat(lat).lon(lon) } }
+                        .order(SortOrder.Asc)
+                        .unit(DistanceUnit.Meters)
+
+                }
+            }
+
+            val response = elasticsearchClient.search(
+                SearchRequest.Builder()
+                    .index(indexAlias)
+                    .query(geoQuery)
+                    .sort(geoSort)
+                    .size(1)
+                    .build(),
+                AddressSearchResult::class.java
+            )
+
+            return response.hits().hits().firstOrNull()?.source()?.apply {
+                // 검색 결과와 입력 좌표 사이의 거리 계산
+                distance = calculateDistance(lat, lon, this.latitude ?: 0.0, this.longitude ?: 0.0)
+            }
+        } catch (e: Exception) {
+            logger.error("주소 검색 중 오류 발생", e)
+            return null
+        }
+    }
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371e3 // 지구 반경 (미터)
+        val φ1 = lat1 * Math.PI / 180
+        val φ2 = lat2 * Math.PI / 180
+        val Δφ = (lat2 - lat1) * Math.PI / 180
+        val Δλ = (lon2 - lon1) * Math.PI / 180
+
+        val a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+        return r * c
+    }
 }
 
 data class AddressGeoDocument(
@@ -173,6 +238,21 @@ data class AddressGeoDocument(
     val latitude: Double?,
     val longitude: Double?
 )
+
+open class AddressSearchResult() {
+    var fullAddress: String? = null
+    val latitude: Double?
+        get() = location?.lat
+    val longitude: Double?
+        get() = location?.lon
+    var location: Location? = null
+    var distance: Double? = null
+}
+
+open class Location() {
+    val lat: Double = 0.0
+    val lon: Double = 0.0
+}
 
 class ElasticsearchOperationException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 

@@ -135,14 +135,14 @@ open class RoadNameAddressProcessor(
                 .readValues(reader)
 
             var processed = 0
-            val maxRecords = 100  // TODO - 처리할 최대 레코드 수 제한
+            //val maxRecords = 100  // TODO - 처리할 최대 레코드 수 제한
 
             iterator.use { iter ->
                 for (data in iter) {
-                    if (processed >= maxRecords) {
-                        logger.info("Reached maximum record limit of $maxRecords")
-                        break
-                    }
+//                    if (processed >= maxRecords) {
+//                        logger.info("Reached maximum record limit of $maxRecords")
+//                        break
+//                    }
 
                     try {
                         if (data.addressManagementNo.isNullOrBlank()) {
@@ -300,14 +300,14 @@ open class RoadNameAddressProcessor(
                 .readValues(reader)
 
             var processed = 0
-            val maxRecords = 100  // TODO - 처리할 최대 레코드 수 제한
+            //val maxRecords = 100  // TODO - 처리할 최대 레코드 수 제한
 
             iterator.use { iter ->
                 for (data in iter) {
-                    if (processed >= maxRecords) {
-                        logger.info("Reached maximum record limit of $maxRecords")
-                        break
-                    }
+//                    if (processed >= maxRecords) {
+//                        logger.info("Reached maximum record limit of $maxRecords")
+//                        break
+//                    }
 
                     try {
                         if (data.addressManagementNo.isNullOrBlank()) {
