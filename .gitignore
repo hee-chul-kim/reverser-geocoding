@@ -137,3 +137,5 @@ captures/
 local.properties
 
 /data/
+
+.specstory/
